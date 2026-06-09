@@ -10,7 +10,7 @@ the home screen, and control the TV over your LAN — including powering it on w
 Wake-on-LAN. Single ~16 MB Go binary, no app store, no cloud.
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="TV Remote UI" width="320">
+  <img src="docs/demo.gif" alt="TV Remote UI" width="300">
 </p>
 
 ## Features
