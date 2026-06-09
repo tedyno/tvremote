@@ -1,9 +1,12 @@
-FROM golang:1.23 AS build
+FROM --platform=$BUILDPLATFORM golang:1.23 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY server/ ./server/
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/tvremote ./server
+# TARGETOS/TARGETARCH are set by buildx for multi-arch; empty on a plain build
+# (then Go targets the host), so this works for both.
+ARG TARGETOS TARGETARCH
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-s -w" -o /out/tvremote ./server
 
 FROM gcr.io/distroless/static-debian12
 WORKDIR /app

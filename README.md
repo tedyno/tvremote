@@ -1,5 +1,10 @@
 # TV Remote
 
+[![Release](https://img.shields.io/github/v/release/tedyno/tvremote?sort=semver)](https://github.com/tedyno/tvremote/releases)
+[![Container](https://img.shields.io/badge/ghcr.io-tvremote-2496ED?logo=docker&logoColor=white)](https://github.com/tedyno/tvremote/pkgs/container/tvremote)
+[![Go](https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white)](go.mod)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A self-hosted web remote for Samsung Tizen TVs. Open it on your phone, add it to
 the home screen, and control the TV over your LAN — including powering it on with
 Wake-on-LAN. Single ~16 MB Go binary, no app store, no cloud.
@@ -33,6 +38,15 @@ and cached.
 ```sh
 cp .env.example .env       # then edit TV_IP and TV_MAC for your TV
 docker compose up -d --build
+```
+
+Or run the prebuilt multi-arch image (amd64/arm64) straight from GHCR:
+
+```sh
+docker run -d --name tvremote --network host \
+  -e TV_IP=192.168.1.10 -e TV_MAC=AA:BB:CC:DD:EE:FF \
+  -v "$PWD/data:/app/data" \
+  ghcr.io/tedyno/tvremote:latest
 ```
 
 Open `http://<host>:<SERVER_PORT>/` on your phone. On first connect the TV shows
