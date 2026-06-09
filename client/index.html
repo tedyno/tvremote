@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-title" content="Remote">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<title>TV Remote</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --bg: #000000;
+    --surface: #0d0d10;
+    --surface-2: #0a0a0d;
+    --line: rgba(255,255,255,0.09);
+    --line-soft: rgba(255,255,255,0.07);
+    --accent: #00e5a0;            /* mint neon */
+    --accent-dim: rgba(0,229,160,0.4);
+    --accent-faint: rgba(0,229,160,0.12);
+    --accent-glow: rgba(0,229,160,0.5);
+    --red: #ff6b6b;
+    --red-dim: rgba(255,90,90,0.4);
+    --text: #f5f5f7;
+    --text-dim: #8a8a93;
+    --radius: 16px;
+  }
+
+  html, body { height: 100%; background: var(--bg); }
+
+  body {
+    position: fixed;
+    inset: 0;
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  .shell {
+    width: 100%;
+    max-width: 400px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding:
+      calc(env(safe-area-inset-top) + 6px)
+      max(14px, env(safe-area-inset-left))
+      calc(env(safe-area-inset-bottom) + 10px)
+      max(14px, env(safe-area-inset-right));
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 4px 6px 10px;
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+
+  #status {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--red);
+    box-shadow: 0 0 8px rgba(255,90,90,0.6);
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  #status.connected { background: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
+
+  .remote {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+    justify-content: space-evenly;
+  }
+
+  .row { display: flex; gap: 8px; justify-content: center; }
+
+  /* ===== Button base — OLED, dark fill, hairline edge ===== */
+  button {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid var(--line);
+    outline: none;
+    background: var(--surface);
+    color: var(--text);
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s ease, filter 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
+    position: relative;
+    overflow: hidden;
+    min-height: 48px;
+    min-width: 48px;
+    touch-action: none;
+  }
+  button > * { pointer-events: none; }
+
+  button.pressing {
+    transform: scale(0.93);
+    filter: brightness(1.35);
+    background-color: rgba(255,255,255,0.06);
+    border-color: var(--accent-dim);
+  }
+
+  button .icon { font-size: 22px; line-height: 1; }
+
+  /* Power — red ghost */
+  .btn-power {
+    width: 54px; height: 54px; border-radius: 50%;
+    background: transparent;
+    color: var(--red);
+    border: 1px solid var(--red-dim);
+    flex-shrink: 0;
+  }
+  .btn-power.pressing { border-color: var(--red); background-color: rgba(255,90,90,0.12); box-shadow: 0 0 22px rgba(255,90,90,0.4); }
+
+  .top-row { justify-content: space-between; padding: 0 4px; align-items: center; }
+  .now-playing { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; padding: 0 12px; }
+  .now-playing .np-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); flex-shrink: 0; transition: background 0.3s, box-shadow 0.3s; }
+  .now-playing .np-dot.on { background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
+  .now-playing .np-text { font-size: 12px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Apps — mint ghost */
+  .btn-apps {
+    width: 54px; height: 54px; border-radius: 50%;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+
+  /* Favorites — mint outline pills */
+  .favorites { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 0; justify-content: center; }
+  .favorites:empty::after {
+    content: "Long-press an app in the list to add it to favorites";
+    color: var(--text-dim); font-size: 12px; text-align: center; line-height: 1.4; padding: 8px;
+  }
+  .fav-btn {
+    flex: 0 1 calc(33.333% - 6px); max-width: calc(33.333% - 6px);
+    height: 46px; padding: 0 12px; border-radius: 14px;
+    font-size: 12px; font-weight: 500;
+    background: transparent;
+    border: 1px solid var(--accent-dim);
+    color: #cffced;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; gap: 8px;
+  }
+  .fav-btn img { width: 22px; height: 22px; border-radius: 6px; object-fit: contain; flex-shrink: 0; }
+  .fav-btn span { overflow: hidden; text-overflow: ellipsis; }
+
+  /* Numpad */
+  .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 4px; }
+  .btn-num { height: 46px; border-radius: 14px; font-size: 17px; font-weight: 600; background: var(--surface-2); border-color: var(--line-soft); }
+
+  /* Volume + D-pad */
+  .main-controls { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 0 4px; }
+  .vol-group { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .btn-vol { width: 56px; height: 58px; border-radius: 16px; font-size: 20px; font-weight: 600; }
+  .btn-mute { width: 56px; height: 40px; border-radius: 13px; font-size: 10px; color: var(--text-dim); background: transparent; }
+
+  .dpad { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(3, 64px); gap: 6px; }
+  .btn-dpad { width: 100%; height: 100%; min-width: 0; min-height: 0; border-radius: 16px; font-size: 18px; background: var(--surface); }
+  .btn-dpad-up    { grid-column: 2; grid-row: 1; border-radius: 20px 20px 12px 12px; }
+  .btn-dpad-left  { grid-column: 1; grid-row: 2; border-radius: 20px 12px 12px 20px; }
+  .btn-dpad-right { grid-column: 3; grid-row: 2; border-radius: 12px 20px 20px 12px; }
+  .btn-dpad-down  { grid-column: 2; grid-row: 3; border-radius: 12px 12px 20px 20px; }
+
+  .btn-enter {
+    grid-column: 2; grid-row: 2; width: 100%; height: 100%;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #00150d;
+    border: none;
+    font-size: 13px; font-weight: 800; letter-spacing: 0.05em;
+    box-shadow: 0 0 26px var(--accent-glow);
+  }
+  .btn-enter.pressing { filter: brightness(1.15); box-shadow: 0 0 36px var(--accent-glow); background-color: var(--accent); border: none; }
+
+  /* Nav + media — ghost */
+  .nav-row { gap: 10px; }
+  .btn-nav { flex: 1; max-width: 120px; height: 46px; border-radius: 14px; font-size: 13px; font-weight: 500; color: var(--text-dim); background: transparent; border-color: var(--line); }
+  .media-row { gap: 8px; }
+  .btn-media { flex: 1; max-width: 120px; height: 46px; border-radius: 14px; font-size: 16px; background: transparent; color: var(--text-dim); border-color: var(--line); }
+
+  /* ===== Tablet / large screens ===== */
+  @media (min-width: 600px) {
+    body { justify-content: center; }
+    .shell {
+      max-width: 440px; height: auto; max-height: 100%;
+      background: #050507;
+      border: 1px solid var(--line);
+      border-radius: 36px;
+      box-shadow: 0 40px 90px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(0,229,160,0.04);
+      padding: 24px 24px calc(24px + env(safe-area-inset-bottom));
+    }
+    .remote { gap: 16px; flex: none; }
+    .dpad { grid-template-columns: repeat(3, 72px); grid-template-rows: repeat(3, 72px); }
+    .btn-num, .btn-nav, .btn-media { height: 52px; }
+  }
+
+  /* ===== Landscape phones ===== */
+  @media (orientation: landscape) and (max-height: 520px) {
+    .shell { max-width: 520px; }
+    .remote { flex: 1; justify-content: flex-start; gap: 8px; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 8px; }
+    .dpad { grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(3, 56px); }
+    .btn-vol { height: 48px; }
+  }
+
+  /* ========== Apps drawer ========== */
+  .drawer-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 90;
+  }
+  .drawer-overlay.open { opacity: 1; pointer-events: auto; }
+
+  .drawer {
+    position: fixed; left: 50%; bottom: 0;
+    width: 100%; max-width: 480px;
+    transform: translate(-50%, 100%);
+    max-height: 85dvh;
+    background: #060608;
+    border: 1px solid var(--line);
+    border-bottom: none;
+    border-radius: 26px 26px 0 0;
+    transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+    z-index: 100;
+    display: flex; flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -20px 60px rgba(0,0,0,0.6);
+  }
+  .drawer.open { transform: translate(-50%, 0); }
+
+  .drawer-handle { width: 38px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; margin: 12px auto 8px; flex-shrink: 0; }
+  .drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 20px 12px; flex-shrink: 0; }
+  .drawer-header h2 { font-size: 16px; font-weight: 600; }
+  .drawer-close { width: 36px; height: 36px; border-radius: 50%; background: transparent; color: var(--text-dim); font-size: 18px; }
+
+  .apps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 16px 24px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  @media (min-width: 600px) { .apps-grid { grid-template-columns: repeat(4, 1fr); } }
+
+  .app-item {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 14px 4px; border-radius: 16px;
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    position: relative; touch-action: pan-y;
+  }
+  .app-item.pressing { background: rgba(255,255,255,0.05); border-color: var(--accent-dim); }
+  .app-item .app-name { font-size: 11px; color: var(--text-dim); text-align: center; line-height: 1.3; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+  .app-item .app-icon { width: 40px; height: 40px; border-radius: 11px; pointer-events: none; object-fit: contain; }
+  .app-item .app-icon-fallback { width: 40px; height: 40px; border-radius: 11px; background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; font-size: 20px; pointer-events: none; }
+  .app-item.is-fav { border-color: var(--accent-dim); background: var(--accent-faint); }
+  .app-item .fav-star { position: absolute; top: 6px; right: 6px; font-size: 12px; color: var(--accent); pointer-events: none; }
+
+  /* Toasts */
+  .toast-container { position: fixed; top: calc(env(safe-area-inset-top) + 12px); left: 12px; right: 12px; z-index: 200; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+  .toast {
+    padding: 11px 18px; border-radius: 12px; font-size: 13px; font-weight: 600; pointer-events: auto;
+    animation: toastIn 0.3s ease-out, toastOut 0.3s ease-in forwards; animation-delay: 0s, 2.7s;
+    max-width: 340px; text-align: center;
+    background: #0d0d10; border: 1px solid var(--line);
+  }
+  .toast.info { border-color: var(--accent-dim); color: var(--accent); box-shadow: 0 0 18px rgba(0,229,160,0.2); }
+  .toast.error { border-color: var(--red-dim); color: var(--red); box-shadow: 0 0 18px rgba(255,90,90,0.2); }
+  .toast.success { border-color: var(--accent-dim); color: var(--accent); }
+
+  @keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <header>
+    <h1>Samsung Remote</h1>
+    <div id="status"></div>
+  </header>
+
+  <div class="remote">
+
+    <!-- Power, Now Playing, Apps -->
+    <div class="row top-row">
+      <button class="btn-power" data-key="KEY_POWER" title="Power">
+        <span class="icon">&#x23FB;</span>
+      </button>
+      <div class="now-playing">
+        <span class="np-dot" id="npDot"></span>
+        <span class="np-text" id="npText">Loading...</span>
+      </div>
+      <button class="btn-apps" id="appsBtn" title="Apps">Apps</button>
+    </div>
+
+    <!-- Favorites -->
+    <div class="favorites" id="favorites"></div>
+
+    <!-- Numpad -->
+    <div class="numpad">
+      <button class="btn-num" data-key="KEY_1">1</button>
+      <button class="btn-num" data-key="KEY_2">2</button>
+      <button class="btn-num" data-key="KEY_3">3</button>
+      <button class="btn-num" data-key="KEY_4">4</button>
+      <button class="btn-num" data-key="KEY_5">5</button>
+      <button class="btn-num" data-key="KEY_6">6</button>
+      <button class="btn-num" data-key="KEY_7">7</button>
+      <button class="btn-num" data-key="KEY_8">8</button>
+      <button class="btn-num" data-key="KEY_9">9</button>
+    </div>
+
+    <!-- Volume + D-Pad -->
+    <div class="main-controls">
+      <div class="vol-group">
+        <button class="btn-vol" data-key="KEY_VOLUP" title="Volume up">
+          <span class="icon">+</span>
+        </button>
+        <button class="btn-mute" data-key="KEY_MUTE" title="Mute">MUTE</button>
+        <button class="btn-vol" data-key="KEY_VOLDOWN" title="Volume down">
+          <span class="icon">&minus;</span>
+        </button>
+      </div>
+
+      <div class="dpad">
+        <button class="btn-dpad btn-dpad-up" data-key="KEY_UP" title="Up">
+          <span class="icon">&#x25B2;</span>
+        </button>
+        <button class="btn-dpad btn-dpad-left" data-key="KEY_LEFT" title="Left">
+          <span class="icon">&#x25C0;</span>
+        </button>
+        <button class="btn-enter" data-key="KEY_ENTER" title="OK">OK</button>
+        <button class="btn-dpad btn-dpad-right" data-key="KEY_RIGHT" title="Right">
+          <span class="icon">&#x25B6;</span>
+        </button>
+        <button class="btn-dpad btn-dpad-down" data-key="KEY_DOWN" title="Down">
+          <span class="icon">&#x25BC;</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Back / Home / Menu -->
+    <div class="row nav-row">
+      <button class="btn-nav" data-key="KEY_RETURN" title="Back">Back</button>
+      <button class="btn-nav" data-key="KEY_HOME" title="Home">Home</button>
+      <button class="btn-nav" data-key="KEY_MENU" title="Menu">Menu</button>
+    </div>
+
+    <!-- Media -->
+    <div class="row media-row">
+      <button class="btn-media" data-key="KEY_PLAY" title="Play">
+        <span class="icon">&#x25B6;</span>
+      </button>
+      <button class="btn-media" data-key="KEY_PAUSE" title="Pause">
+        <span class="icon">&#x23F8;</span>
+      </button>
+      <button class="btn-media" data-key="KEY_STOP" title="Stop">
+        <span class="icon">&#x23F9;</span>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toasts -->
+<div class="toast-container" id="toasts"></div>
+
+<!-- Apps Drawer -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-header">
+    <h2>Apps</h2>
+    <button class="drawer-close" id="drawerClose">&#x2715;</button>
+  </div>
+  <div class="apps-grid" id="appsGrid"></div>
+</div>
+
+<script>
+  const statusEl = document.getElementById('status');
+  const favoritesEl = document.getElementById('favorites');
+  const drawer = document.getElementById('drawer');
+  const drawerOverlay = document.getElementById('drawerOverlay');
+  const appsGrid = document.getElementById('appsGrid');
+  const toastsEl = document.getElementById('toasts');
+
+  let allApps = [];
+
+  function buzz(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
+
+  function toast(msg, type = 'info') {
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    toastsEl.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+  }
+
+  /**
+   * Tap binding via Pointer Events.
+   * Fires `fn` only on a real tap (no significant movement, short duration),
+   * so a swipe that starts on a button does NOT trigger it.
+   * Optional long-press handler for the apps grid.
+   */
+  function bindTap(el, fn, { longPress, longPressMs = 500 } = {}) {
+    const MOVE = 12;       // px tolerance before it counts as a swipe
+    const TAP_MAX = 700;   // ms — longer than this is not a tap
+    let sx = 0, sy = 0, t0 = 0, moved = false, didLong = false, lpTimer = null;
+
+    el.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      sx = e.clientX; sy = e.clientY; t0 = e.timeStamp;
+      moved = false; didLong = false;
+      el.classList.add('pressing');
+      try { el.setPointerCapture(e.pointerId); } catch {}
+      if (longPress) {
+        lpTimer = setTimeout(() => {
+          didLong = true;
+          buzz(50);
+          longPress();
+        }, longPressMs);
+      }
+    });
+
+    el.addEventListener('pointermove', (e) => {
+      if (Math.abs(e.clientX - sx) > MOVE || Math.abs(e.clientY - sy) > MOVE) {
+        if (!moved) { moved = true; clearTimeout(lpTimer); el.classList.remove('pressing'); }
+      }
+    });
+
+    const finish = (e, cancelled) => {
+      el.classList.remove('pressing');
+      clearTimeout(lpTimer);
+      if (cancelled || didLong || moved) return;
+      if (e.timeStamp - t0 <= TAP_MAX) fn();
+    };
+
+    el.addEventListener('pointerup', (e) => finish(e, false));
+    el.addEventListener('pointercancel', (e) => finish(e, true));
+  }
+
+  /**
+   * Press-and-hold binding. Sends Press on pointer down and Release on up,
+   * so the TV ramps its own repeat (e.g. faster seeking) like the real remote.
+   * A quick tap is just Press immediately followed by Release = one step.
+   */
+  function bindHold(el, key) {
+    let active = false, ping = null;
+    const PING_MS = 2000; // keep the hold alive; server auto-releases at 5s of silence
+    const down = (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (active) return;
+      active = true;
+      el.classList.add('pressing');
+      try { el.setPointerCapture(e.pointerId); } catch {}
+      buzz(20);
+      fetch('/api/keydown/' + key)
+        .then((r) => {
+          if (!active) return;
+          if (!r.ok) { toast('TV not connected', 'error'); release(); return; }
+          // Ping so the TV keeps the key held for as long as the finger is down.
+          ping = setInterval(() => fetch('/api/keyhold/' + key).catch(() => {}), PING_MS);
+        })
+        .catch(() => { if (active) { toast('Server unavailable', 'error'); release(); } });
+    };
+    const release = () => {
+      if (!active) return;
+      active = false;
+      clearInterval(ping);
+      el.classList.remove('pressing');
+      fetch('/api/keyup/' + key).catch(() => {});
+    };
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointerup', release);
+    el.addEventListener('pointercancel', release);
+    el.addEventListener('lostpointercapture', release);
+  }
+
+  // --- Favorites (localStorage) ---
+  function getFavs() {
+    try { return JSON.parse(localStorage.getItem('tv-favs') || '[]'); } catch { return []; }
+  }
+  function saveFavs(favs) { localStorage.setItem('tv-favs', JSON.stringify(favs)); }
+  function toggleFav(appId) {
+    let favs = getFavs();
+    favs = favs.includes(appId) ? favs.filter(f => f !== appId) : [...favs, appId];
+    saveFavs(favs);
+    renderFavorites();
+    renderAppsGrid();
+  }
+
+  // --- API ---
+  async function send(key) {
+    buzz(30);
+    try {
+      const res = await fetch('/api/key/' + key);
+      const data = await res.json();
+      if (!data.ok) toast(data.error || 'Error', 'error');
+      else if (data.key === 'WOL') toast('Waking TV… give it ~15 s', 'info');
+    } catch {
+      toast('Server unavailable', 'error');
+    }
+  }
+
+  async function launchApp(appId) {
+    buzz(30);
+    closeDrawer();
+    try {
+      const res = await fetch('/api/launch/' + appId);
+      const data = await res.json();
+      if (!data.ok) toast(data.error || 'Error', 'error');
+    } catch {
+      toast('Server unavailable', 'error');
+    }
+  }
+
+  async function loadApps() {
+    try {
+      const res = await fetch('/api/apps');
+      const data = await res.json();
+      if (data.ok) {
+        allApps = data.apps;
+        renderAppsGrid();
+        renderFavorites();
+      }
+    } catch (e) {
+      console.error('Error:', e);
+    }
+  }
+
+  async function checkStatus() {
+    try {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      statusEl.classList.toggle('connected', data.connected);
+      if (data.connected && allApps.length === 0) loadApps();
+    } catch {
+      statusEl.classList.remove('connected');
+    }
+  }
+
+  // --- Render favorites bar ---
+  function renderFavorites() {
+    const favs = getFavs();
+    favoritesEl.innerHTML = '';
+    favs.forEach(appId => {
+      const app = allApps.find(a => a.appId === appId);
+      if (!app) return;
+      const btn = document.createElement('button');
+      btn.className = 'fav-btn';
+      const img = document.createElement('img');
+      img.src = '/api/icon/' + encodeURIComponent(app.name);
+      img.onerror = () => img.remove();
+      btn.appendChild(img);
+      const span = document.createElement('span');
+      span.textContent = app.name;
+      btn.appendChild(span);
+      bindTap(btn, () => launchApp(appId));
+      favoritesEl.appendChild(btn);
+    });
+  }
+
+  // --- Render apps grid ---
+  function renderAppsGrid() {
+    const favs = getFavs();
+    appsGrid.innerHTML = '';
+    allApps.forEach(app => {
+      const div = document.createElement('div');
+      div.className = 'app-item' + (favs.includes(app.appId) ? ' is-fav' : '');
+
+      const icon = document.createElement('img');
+      icon.className = 'app-icon';
+      icon.src = '/api/icon/' + encodeURIComponent(app.name);
+      icon.loading = 'lazy';
+      icon.onerror = () => {
+        const fallback = document.createElement('div');
+        fallback.className = 'app-icon-fallback';
+        fallback.textContent = app.name.charAt(0);
+        icon.replaceWith(fallback);
+      };
+
+      const name = document.createElement('span');
+      name.className = 'app-name';
+      name.textContent = app.name;
+
+      div.appendChild(icon);
+      div.appendChild(name);
+
+      if (favs.includes(app.appId)) {
+        const star = document.createElement('span');
+        star.className = 'fav-star';
+        star.textContent = '★';
+        div.appendChild(star);
+      }
+
+      // Tap = launch, long press = toggle favorite
+      bindTap(div, () => launchApp(app.appId), { longPress: () => toggleFav(app.appId) });
+
+      appsGrid.appendChild(div);
+    });
+  }
+
+  // --- Drawer ---
+  function openDrawer() {
+    drawer.classList.add('open');
+    drawerOverlay.classList.add('open');
+    if (allApps.length === 0) loadApps();
+  }
+  function closeDrawer() {
+    drawer.classList.remove('open');
+    drawerOverlay.classList.remove('open');
+  }
+
+  bindTap(document.getElementById('appsBtn'), openDrawer);
+  bindTap(document.getElementById('drawerClose'), closeDrawer);
+  drawerOverlay.addEventListener('pointerdown', closeDrawer);
+
+  // --- Remote buttons ---
+  // These benefit from press-and-hold (TV accelerates the repeat).
+  const HOLD_KEYS = new Set([
+    'KEY_UP', 'KEY_DOWN', 'KEY_LEFT', 'KEY_RIGHT', 'KEY_VOLUP', 'KEY_VOLDOWN',
+  ]);
+  document.querySelectorAll('button[data-key]').forEach(btn => {
+    const key = btn.dataset.key;
+    if (HOLD_KEYS.has(key)) bindHold(btn, key);
+    else bindTap(btn, () => send(key));
+  });
+
+  // --- TV Info polling ---
+  const npDot = document.getElementById('npDot');
+  const npText = document.getElementById('npText');
+
+  async function updateTvInfo() {
+    try {
+      const res = await fetch('/api/tv-info');
+      const data = await res.json();
+      npDot.className = 'np-dot' + (data.power === 'on' ? ' on' : '');
+      if (data.power === 'off') npText.textContent = 'TV off';
+      else if (data.activeApp) npText.textContent = data.activeApp;
+      else npText.textContent = 'TV on';
+    } catch {
+      npDot.className = 'np-dot';
+      npText.textContent = 'Server unavailable';
+    }
+  }
+
+  // --- Init ---
+  checkStatus();
+  setInterval(checkStatus, 3000);
+  updateTvInfo();
+  setInterval(updateTvInfo, 10000);
+  loadApps();
+</script>
+
+</body>
+</html>

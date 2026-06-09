@@ -1,0 +1,9 @@
+services:
+  tvremote:
+    build: .
+    container_name: tvremote
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    volumes:
+      - ./data:/app/data

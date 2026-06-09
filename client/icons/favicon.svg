@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <filter id="g" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="26"/>
+    </filter>
+    <radialGradient id="ok" cx="50%" cy="42%" r="60%">
+      <stop offset="0%" stop-color="#66ffd0"/>
+      <stop offset="100%" stop-color="#00e5a0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="#000000"/>
+  <circle cx="256" cy="256" r="118" fill="#00e5a0" opacity="0.45" filter="url(#g)"/>
+  <g fill="#00e5a0">
+    <polygon points="256,60 226,108 286,108"/>
+    <polygon points="256,452 226,404 286,404"/>
+    <polygon points="60,256 108,226 108,286"/>
+    <polygon points="452,256 404,226 404,286"/>
+  </g>
+  <circle cx="256" cy="256" r="112" fill="url(#ok)"/>
+  <text x="256" y="256" fill="#00150d" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="74" font-weight="800" text-anchor="middle" dominant-baseline="central"
+        letter-spacing="2">OK</text>
+</svg>
