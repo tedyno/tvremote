@@ -9,6 +9,11 @@ A self-hosted web remote for Samsung Tizen TVs. Open it on your phone, add it to
 the home screen, and control the TV over your LAN — including powering it on with
 Wake-on-LAN. Single ~16 MB Go binary, no app store, no cloud.
 
+> **Prefer no server at all?** There's now a native, **server-free iOS app** under
+> [`ios/`](ios/) — a SwiftUI rewrite that does everything the Go server does
+> (WebSocket control, Wake-on-LAN, app launching) directly on the iPhone, with
+> automatic TV discovery. See [`ios/README.md`](ios/README.md).
+
 <p align="center">
   <img src="docs/demo.gif" alt="TV Remote UI" width="300">
 </p>
