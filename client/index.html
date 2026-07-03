@@ -644,6 +644,48 @@
     else bindTap(btn, () => send(key));
   });
 
+  /**
+   * Global swipe navigation. Swiping anywhere on screen sends an arrow key,
+   * so the D-pad doesn't have to be aimed at precisely. Detection runs on
+   * `document` in the capture phase, so it still sees the gesture even when
+   * it starts on top of a button (pointer capture retargets events but they
+   * still bubble through their ancestors, `document` included).
+   * D-pad/volume buttons are excluded: they already act on pointerdown, so
+   * a swipe starting there would fire twice.
+   */
+  (function () {
+    const SWIPE_MIN = 45;       // px — minimum travel to count as a swipe
+    const SWIPE_MAX_TIME = 600; // ms — slower drags are ignored
+    const AXIS_RATIO = 1.4;     // dominant axis must beat the other by this much
+
+    let active = false, pointerId = null, sx = 0, sy = 0, t0 = 0;
+
+    document.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (active || drawer.classList.contains('open')) return;
+      const btn = e.target.closest('button[data-key]');
+      if (btn && HOLD_KEYS.has(btn.dataset.key)) return;
+      active = true;
+      pointerId = e.pointerId;
+      sx = e.clientX; sy = e.clientY; t0 = e.timeStamp;
+    }, true);
+
+    const finish = (e) => {
+      if (!active || e.pointerId !== pointerId) return;
+      active = false;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (e.timeStamp - t0 > SWIPE_MAX_TIME) return;
+      const adx = Math.abs(dx), ady = Math.abs(dy);
+      if (Math.max(adx, ady) < SWIPE_MIN) return;
+      if (adx > ady * AXIS_RATIO) send(dx > 0 ? 'KEY_RIGHT' : 'KEY_LEFT');
+      else if (ady > adx * AXIS_RATIO) send(dy > 0 ? 'KEY_DOWN' : 'KEY_UP');
+    };
+    document.addEventListener('pointerup', finish, true);
+    document.addEventListener('pointercancel', (e) => {
+      if (e.pointerId === pointerId) active = false;
+    }, true);
+  })();
+
   // --- TV Info polling ---
   const npDot = document.getElementById('npDot');
   const npText = document.getElementById('npText');
